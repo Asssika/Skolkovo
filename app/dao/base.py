@@ -2,16 +2,23 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import async_session_maker
 
-from sqlalchemy import select, update as sqlalchemy_update
+from sqlalchemy import select, update as sqlalchemy_update, delete
 
 
 class BaseDAO:
     model = None
 
     @classmethod
+    async def find_one_or_none(cls, **filter_by):
+        async with async_session_maker() as session:
+            query = select(cls.model).filter_by(**filter_by)
+            result = await session.execute(query)
+            return result.scalar_one_or_none()
+
+    @classmethod
     async def find_by_id(cls, model_id: int):
         async with async_session_maker() as session:
-            query = select(cls.model).filter_by(id=model_id)
+            query = select(cls.model).filter_by(uuid=model_id)
             result = await session.execute(query)
             return result.scalar_one_or_none()
 
@@ -45,6 +52,22 @@ class BaseDAO:
                     .values(**values)
                     .execution_options(synchronize_session="fetch")
                 )
+                result = await session.execute(query)
+                try:
+                    await session.commit()
+                except SQLAlchemyError as e:
+                    await session.rollback()
+                    raise e
+                return result.rowcount
+
+    @classmethod
+    async def delete(cls, delete_all: bool = False, **filter_by):
+        if not delete_all and not filter_by:
+            raise ValueError("Необходимо указать хотя бы один параметр для удаления.")
+
+        async with async_session_maker() as session:
+            async with session.begin():
+                query = delete(cls.model).filter_by(**filter_by)
                 result = await session.execute(query)
                 try:
                     await session.commit()

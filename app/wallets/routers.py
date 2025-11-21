@@ -22,13 +22,26 @@ async def get_wallet_by_id(wallet_id: int) -> SWallets | dict:
 
 @router.post('/add')
 async def post_wallet(wallet: SWalletsAdd):
+    rez = await WalletsDAO.find_by_id(wallet.uuid)
+    print(wallet)
+    if rez:
+        return {'message': f'wallet with uuid {wallet.uuid} already exist'}
     return await WalletsDAO.add(**wallet.dict())
 
 
-@router.put("/update_description/")
-async def update_major_description(wallet: SWalletsUpdate) -> dict:
+@router.put("/update/")
+async def update_wallet(wallet: SWalletsUpdate) -> dict:
     check = await WalletsDAO.update(filter_by={'uuid': wallet.uuid}, amount=wallet.amount)
     if check:
         return {"message": "Сумма кошелька успешно обновлена!", "amount": wallet.amount}
     else:
         return {"message": "Ошибка при обновлении суммы кошелька!"}
+
+
+@router.delete("/delete/{wallet_id}")
+async def delete_major(wallet_uuid: int) -> dict:
+    check = await WalletsDAO.delete(uuid=wallet_uuid)
+    if check:
+        return {"message": f"Факультет с ID {wallet_uuid} удален!"}
+    else:
+        return {"message": "Ошибка при удалении факультета!"}
